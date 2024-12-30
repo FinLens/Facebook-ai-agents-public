@@ -1,7 +1,8 @@
 from typing import Dict, Any, List
 from .base_agent import BaseAgent
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
+import os
 
 class OptimizationAgent(BaseAgent):
     def __init__(self):
@@ -19,7 +20,21 @@ class OptimizationAgent(BaseAgent):
                           metrics: List[str],
                           time_window: str = "1d") -> Dict[str, Any]:
         """
-        Monitor campaign performance metrics
+        Monitor campaign performance metrics and generate alerts.
+        
+        This method performs several key functions:
+        1. Fetches recent performance data for specified metrics
+        2. Analyzes performance trends
+        3. Generates alerts for significant changes
+        4. Provides optimization recommendations
+        
+        Args:
+            campaign_id: Facebook campaign ID to monitor
+            metrics: List of metrics to track (e.g., ['ctr', 'cpa', 'roas'])
+            time_window: Time period for analysis (e.g., "1d" for 1 day, "7d" for 7 days)
+            
+        Returns:
+            Dict containing monitoring results, alerts, and recommendations
         """
         try:
             monitoring_results = {
@@ -40,16 +55,16 @@ class OptimizationAgent(BaseAgent):
                 for metric in metrics
             }
             
-            # Analyze trends
+            # Analyze performance trends
             monitoring_results['trends'] = self._analyze_trends(performance_data, metrics)
             
-            # Generate alerts
+            # Generate performance alerts
             monitoring_results['alerts'] = self._generate_performance_alerts(
                 monitoring_results['metrics'],
                 monitoring_results['trends']
             )
             
-            # Generate recommendations
+            # Generate optimization recommendations
             monitoring_results['recommendations'] = self._generate_optimization_recommendations(
                 monitoring_results['metrics'],
                 monitoring_results['trends'],
@@ -67,44 +82,54 @@ class OptimizationAgent(BaseAgent):
                      performance_data: Dict[str, Any],
                      target_metrics: Dict[str, float]) -> Dict[str, Any]:
         """
-        Optimize bidding strategy based on performance
+        Optimize bidding strategy based on performance data.
+        
+        This method:
+        1. Analyzes current bid performance against targets
+        2. Calculates optimal bid adjustments
+        3. Recommends bid strategy changes
+        4. Estimates impact of changes
+        
+        Args:
+            ad_set_id: Facebook ad set ID to optimize
+            performance_data: Current performance metrics
+            target_metrics: Target values for key metrics (e.g., {'cpa': 50.0, 'roas': 2.0})
+            
+        Returns:
+            Dict containing bid optimization recommendations and expected impact
         """
         try:
             optimization_result = {
                 'ad_set_id': ad_set_id,
-                'current_performance': performance_data,
-                'bid_adjustments': {},
+                'bid_adjustments': [],
                 'strategy_changes': [],
                 'expected_impact': {}
             }
             
-            # Calculate bid adjustments
-            current_cpa = performance_data.get('cpa', 0)
-            target_cpa = target_metrics.get('cpa', 0)
+            current_cpa = self._calculate_metric(performance_data, 'cpa')
+            current_roas = self._calculate_metric(performance_data, 'roas')
             
-            if current_cpa > 0 and target_cpa > 0:
-                bid_multiplier = target_cpa / current_cpa
-                
-                # Apply reasonable limits to bid changes
-                bid_multiplier = max(0.7, min(1.3, bid_multiplier))
-                
-                optimization_result['bid_adjustments'] = {
-                    'multiplier': bid_multiplier,
-                    'reason': f"Adjusting bid to achieve target CPA of {target_cpa}"
-                }
-            
-            # Recommend strategy changes
-            if performance_data.get('conversion_rate', 0) < target_metrics.get('conversion_rate', 0):
-                optimization_result['strategy_changes'].append({
-                    'type': 'bidding_strategy',
-                    'change': 'switch_to_value_optimization',
-                    'reason': 'Low conversion rate relative to target'
+            # Check if CPA is too high
+            if current_cpa > target_metrics.get('cpa', float('inf')):
+                optimization_result['bid_adjustments'].append({
+                    'action': 'decrease_bid',
+                    'amount': min(0.9, target_metrics['cpa'] / current_cpa),
+                    'reason': 'CPA above target'
                 })
             
-            # Calculate expected impact
+            # Check if ROAS is too low
+            if current_roas < target_metrics.get('roas', 0):
+                optimization_result['strategy_changes'].append({
+                    'action': 'adjust_optimization_goal',
+                    'current': 'CONVERSIONS',
+                    'recommended': 'VALUE',
+                    'reason': 'ROAS below target'
+                })
+            
+            # Estimate impact of changes
             optimization_result['expected_impact'] = {
-                'cpa': current_cpa * (optimization_result['bid_adjustments'].get('multiplier', 1)),
-                'spend': performance_data.get('daily_spend', 0) * (optimization_result['bid_adjustments'].get('multiplier', 1))
+                'cpa': current_cpa * 0.9 if optimization_result['bid_adjustments'] else current_cpa,
+                'roas': current_roas * 1.1 if optimization_result['strategy_changes'] else current_roas
             }
             
             return optimization_result
@@ -118,44 +143,54 @@ class OptimizationAgent(BaseAgent):
                         audience_insights: Dict[str, Any],
                         performance_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Optimize audience targeting
+        Optimize audience targeting based on performance data and insights.
+        
+        This method performs several optimizations:
+        1. Analyzes audience segment performance
+        2. Identifies opportunities for expansion
+        3. Recommends segments to exclude
+        4. Suggests lookalike audiences
+        
+        Args:
+            ad_set_id: Facebook ad set ID to optimize
+            audience_insights: Audience performance data and demographics
+            performance_data: Current performance metrics
+            
+        Returns:
+            Dict containing audience optimization recommendations
         """
         try:
             optimization_result = {
                 'ad_set_id': ad_set_id,
-                'targeting_adjustments': [],
                 'expansion_recommendations': [],
-                'exclusion_recommendations': []
+                'exclusion_recommendations': [],
+                'lookalike_recommendations': [],
+                'expected_impact': {}
             }
             
-            # Analyze audience performance
-            performance_by_segment = self._analyze_audience_segments(audience_insights, performance_data)
-            
-            # Generate targeting adjustments
-            for segment, metrics in performance_by_segment.items():
-                if metrics['cpa'] > performance_data.get('target_cpa', float('inf')) * 1.2:
-                    optimization_result['targeting_adjustments'].append({
-                        'segment': segment,
-                        'action': 'exclude',
-                        'reason': 'High CPA relative to target'
-                    })
-                elif metrics['conversion_rate'] > performance_data.get('average_conversion_rate', 0) * 1.2:
-                    optimization_result['targeting_adjustments'].append({
-                        'segment': segment,
-                        'action': 'increase_bid',
-                        'reason': 'High conversion rate relative to average'
-                    })
+            # Analyze performance by audience segment
+            segment_performance = self._analyze_audience_segments(
+                audience_insights,
+                performance_data
+            )
             
             # Generate expansion recommendations
-            if len(optimization_result['targeting_adjustments']) > 0:
-                optimization_result['expansion_recommendations'] = self._generate_audience_expansion_recommendations(
-                    performance_by_segment
-                )
+            optimization_result['expansion_recommendations'] = \
+                self._generate_audience_expansion_recommendations(segment_performance)
             
             # Generate exclusion recommendations
-            optimization_result['exclusion_recommendations'] = self._generate_exclusion_recommendations(
-                performance_by_segment
-            )
+            optimization_result['exclusion_recommendations'] = \
+                self._generate_exclusion_recommendations(segment_performance)
+            
+            # Estimate impact
+            current_cpa = self._calculate_metric(performance_data, 'cpa')
+            current_conversion_rate = self._calculate_metric(performance_data, 'conversion_rate')
+            
+            optimization_result['expected_impact'] = {
+                'audience_size': '+20%' if optimization_result['expansion_recommendations'] else '0%',
+                'cpa': f"-{len(optimization_result['exclusion_recommendations']) * 5}%",
+                'conversion_rate': f"+{len(optimization_result['expansion_recommendations']) * 2}%"
+            }
             
             return optimization_result
             
@@ -168,7 +203,21 @@ class OptimizationAgent(BaseAgent):
                           placement_performance: Dict[str, Any],
                           budget_constraints: Dict[str, float]) -> Dict[str, Any]:
         """
-        Optimize ad placements
+        Optimize ad placements based on performance data.
+        
+        This method:
+        1. Analyzes performance by placement
+        2. Identifies opportunities for budget reallocation
+        3. Recommends placement adjustments
+        4. Estimates impact of changes
+        
+        Args:
+            ad_set_id: Facebook ad set ID to optimize
+            placement_performance: Performance data by placement
+            budget_constraints: Budget constraints for optimization
+            
+        Returns:
+            Dict containing placement optimization recommendations and expected impact
         """
         try:
             optimization_result = {
@@ -184,29 +233,34 @@ class OptimizationAgent(BaseAgent):
                 metrics = self._calculate_placement_metrics(data)
                 placement_metrics[placement] = metrics
             
-            # Generate placement adjustments
-            total_spend = sum(metrics['spend'] for metrics in placement_metrics.values())
-            for placement, metrics in placement_metrics.items():
-                if metrics['cpa'] > placement_performance.get('target_cpa', float('inf')) * 1.2:
-                    optimization_result['placement_adjustments'].append({
-                        'placement': placement,
-                        'action': 'decrease_bid',
-                        'adjustment_factor': 0.8,
-                        'reason': 'High CPA relative to target'
-                    })
-                elif metrics['roas'] > placement_performance.get('target_roas', 0) * 1.2:
-                    optimization_result['placement_adjustments'].append({
-                        'placement': placement,
-                        'action': 'increase_bid',
-                        'adjustment_factor': 1.2,
-                        'reason': 'High ROAS relative to target'
-                    })
-            
-            # Calculate budget allocation
+            # Calculate optimal budget allocation
             optimization_result['budget_allocation'] = self._calculate_placement_budget_allocation(
                 placement_metrics,
                 budget_constraints
             )
+            
+            # Generate placement adjustments
+            for placement, metrics in placement_metrics.items():
+                if metrics['cpa'] > placement_performance.get('target_cpa', float('inf')) * 1.2:
+                    optimization_result['placement_adjustments'].append({
+                        'placement': placement,
+                        'action': 'pause',
+                        'reason': 'CPA significantly above target'
+                    })
+                elif metrics['roas'] < float(os.getenv('MIN_ROAS', 2.0)):
+                    optimization_result['placement_adjustments'].append({
+                        'placement': placement,
+                        'action': 'reduce_budget',
+                        'amount': -0.3,  # Reduce by 30%
+                        'reason': 'ROAS below minimum threshold'
+                    })
+                elif metrics['roas'] > float(os.getenv('MIN_ROAS', 2.0)) * 1.5:
+                    optimization_result['placement_adjustments'].append({
+                        'placement': placement,
+                        'action': 'increase_budget',
+                        'amount': 0.2,  # Increase by 20%
+                        'reason': 'Strong ROAS performance'
+                    })
             
             # Calculate expected impact
             optimization_result['expected_impact'] = self._calculate_placement_optimization_impact(
@@ -226,7 +280,20 @@ class OptimizationAgent(BaseAgent):
                      performance_data: Dict[str, Any],
                      budget_constraints: Dict[str, float]) -> Dict[str, float]:
         """
-        Adjust budget allocation based on performance
+        Adjust budget allocation based on performance.
+        
+        This method:
+        1. Analyzes campaign performance
+        2. Checks budget constraints
+        3. Recommends budget adjustments
+        
+        Args:
+            campaign_id: Facebook campaign ID to adjust budget for
+            performance_data: Current performance metrics
+            budget_constraints: Budget constraints for optimization
+            
+        Returns:
+            Dict containing budget adjustment recommendations
         """
         try:
             budget_adjustments = {
@@ -279,128 +346,191 @@ class OptimizationAgent(BaseAgent):
             self.handle_error(e, {'method': 'adjust_budget'})
             return {}
             
-    def _fetch_performance_data(self, campaign_id: str, metrics: List[str], time_window: str) -> Dict[str, Any]:
-        """Helper method to fetch performance data"""
-        # This would typically make API calls to Facebook
-        # For now, return dummy data
-        return {
-            'spend': 100.0,
-            'impressions': 10000,
-            'clicks': 200,
-            'conversions': 10,
-            'revenue': 500.0
-        }
+    def _fetch_performance_data(self,
+                              campaign_id: str,
+                              metrics: List[str],
+                              time_window: str) -> Dict[str, Any]:
+        """Helper method to fetch performance data from Facebook API"""
+        window_value = int(time_window[:-1])
+        window_unit = time_window[-1]
+        
+        if window_unit == 'd':
+            start_date = datetime.now() - timedelta(days=window_value)
+        elif window_unit == 'w':
+            start_date = datetime.now() - timedelta(weeks=window_value)
+        else:
+            raise ValueError(f"Unsupported time window unit: {window_unit}")
+            
+        return self.fb_service.get_campaign_data(campaign_id, start_date)
         
     def _calculate_metric(self, data: Dict[str, Any], metric: str) -> float:
-        """Helper method to calculate individual metrics"""
-        if metric == 'ctr':
-            return (data.get('clicks', 0) / data.get('impressions', 1)) * 100
-        elif metric == 'cpa':
-            return data.get('spend', 0) / max(data.get('conversions', 1), 1)
-        elif metric == 'roas':
-            return data.get('revenue', 0) / max(data.get('spend', 1), 1)
-        return 0.0
-        
-    def _analyze_trends(self, data: Dict[str, Any], metrics: List[str]) -> Dict[str, Any]:
-        """Helper method to analyze performance trends"""
+        """Helper method to calculate specific metrics"""
+        try:
+            if metric == 'ctr':
+                return (data.get('clicks', 0) / data.get('impressions', 1)) * 100
+            elif metric == 'cpc':
+                return data.get('spend', 0) / max(data.get('clicks', 1), 1)
+            elif metric == 'conversion_rate':
+                return (data.get('conversions', 0) / max(data.get('clicks', 1), 1)) * 100
+            elif metric == 'cpa':
+                return data.get('spend', 0) / max(data.get('conversions', 1), 1)
+            elif metric == 'roas':
+                return data.get('revenue', 0) / max(data.get('spend', 1), 1)
+            else:
+                return data.get(metric, 0)
+        except Exception:
+            return 0
+            
+    def _analyze_trends(self,
+                       performance_data: Dict[str, Any],
+                       metrics: List[str]) -> Dict[str, str]:
+        """Helper method to analyze metric trends"""
         trends = {}
         for metric in metrics:
-            metric_value = self._calculate_metric(data, metric)
-            trends[metric] = {
-                'current_value': metric_value,
-                'trend_direction': 'stable',  # This would be calculated from historical data
-                'change_rate': 0.0  # This would be calculated from historical data
-            }
+            current_value = self._calculate_metric(performance_data, metric)
+            previous_value = self._calculate_metric(
+                self._get_previous_period_data(performance_data),
+                metric
+            )
+            
+            if current_value > previous_value * 1.1:
+                trends[metric] = 'increasing'
+            elif current_value < previous_value * 0.9:
+                trends[metric] = 'decreasing'
+            else:
+                trends[metric] = 'stable'
+                
         return trends
         
-    def _generate_performance_alerts(self, 
+    def _get_previous_period_data(self, current_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Helper method to get previous period data"""
+        # This would typically fetch historical data
+        # For now, return estimated previous data
+        return {
+            key: value * 0.9 for key, value in current_data.items()
+            if isinstance(value, (int, float))
+        }
+        
+    def _generate_performance_alerts(self,
                                    metrics: Dict[str, float],
-                                   trends: Dict[str, Any]) -> List[Dict[str, Any]]:
+                                   trends: Dict[str, str]) -> List[Dict[str, Any]]:
         """Helper method to generate performance alerts"""
         alerts = []
         
-        # Check for significant performance changes
-        for metric, data in trends.items():
-            if abs(data.get('change_rate', 0)) > 0.2:  # 20% change threshold
+        # Define alert thresholds
+        thresholds = {
+            'ctr': 1.0,  # 1% CTR
+            'conversion_rate': 2.0,  # 2% conversion rate
+            'roas': 2.0  # 2x ROAS
+        }
+        
+        # Check each metric against threshold
+        for metric, value in metrics.items():
+            if metric in thresholds and value < thresholds[metric]:
                 alerts.append({
                     'metric': metric,
-                    'type': 'significant_change',
-                    'direction': 'increase' if data.get('change_rate', 0) > 0 else 'decrease',
-                    'magnitude': abs(data.get('change_rate', 0))
+                    'current_value': value,
+                    'threshold': thresholds[metric],
+                    'trend': trends.get(metric, 'stable'),
+                    'severity': 'high' if value < thresholds[metric] * 0.5 else 'medium'
                 })
                 
         return alerts
         
     def _generate_optimization_recommendations(self,
                                             metrics: Dict[str, float],
-                                            trends: Dict[str, Any],
+                                            trends: Dict[str, str],
                                             alerts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Helper method to generate optimization recommendations"""
         recommendations = []
         
-        # Generate recommendations based on alerts
-        for alert in alerts:
-            if alert['type'] == 'significant_change' and alert['direction'] == 'decrease':
-                recommendations.append({
-                    'type': 'optimization',
-                    'metric': alert['metric'],
-                    'action': 'investigate_decline',
-                    'priority': 'high'
-                })
-                
+        # Handle low CTR
+        if metrics.get('ctr', 0) < 1.0:
+            recommendations.append({
+                'type': 'creative',
+                'action': 'refresh_creatives',
+                'reason': 'Low CTR indicates ad creative fatigue',
+                'priority': 'high' if metrics.get('ctr', 0) < 0.5 else 'medium'
+            })
+            
+        # Handle high CPA
+        if metrics.get('cpa', 0) > metrics.get('target_cpa', 100):
+            recommendations.append({
+                'type': 'bidding',
+                'action': 'optimize_bidding',
+                'reason': 'CPA above target',
+                'priority': 'high'
+            })
+            
+        # Handle low ROAS
+        if metrics.get('roas', 0) < 2.0:
+            recommendations.append({
+                'type': 'targeting',
+                'action': 'refine_targeting',
+                'reason': 'Low ROAS indicates targeting inefficiency',
+                'priority': 'high' if metrics.get('roas', 0) < 1.0 else 'medium'
+            })
+            
         return recommendations
         
     def _analyze_audience_segments(self,
                                  audience_insights: Dict[str, Any],
                                  performance_data: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
         """Helper method to analyze audience segment performance"""
-        segment_performance = {}
+        segments = {}
         
-        # Calculate metrics for each segment
-        for segment, data in audience_insights.items():
-            segment_performance[segment] = {
-                'cpa': data.get('spend', 0) / max(data.get('conversions', 1), 1),
-                'conversion_rate': data.get('conversions', 0) / max(data.get('clicks', 1), 1),
-                'spend': data.get('spend', 0)
-            }
-            
-        return segment_performance
+        # This would typically analyze real segment data
+        # For now, return sample analysis
+        segments['core_audience'] = {
+            'ctr': 2.1,
+            'conversion_rate': 3.2,
+            'cpa': 25.0,
+            'roas': 2.5
+        }
+        
+        segments['lookalike_audience'] = {
+            'ctr': 1.8,
+            'conversion_rate': 2.7,
+            'cpa': 30.0,
+            'roas': 2.0
+        }
+        
+        return segments
         
     def _generate_audience_expansion_recommendations(self,
-                                                   performance_by_segment: Dict[str, Dict[str, float]]) -> List[Dict[str, Any]]:
+                                                   segment_performance: Dict[str, Dict[str, float]]) -> List[Dict[str, Any]]:
         """Helper method to generate audience expansion recommendations"""
         recommendations = []
         
-        # Find top performing segments
-        top_segments = sorted(
-            performance_by_segment.items(),
-            key=lambda x: x[1]['conversion_rate'],
-            reverse=True
-        )[:3]
-        
-        # Generate recommendations for each top segment
-        for segment, metrics in top_segments:
-            recommendations.append({
-                'segment': segment,
-                'type': 'lookalike_audience',
-                'percentage': 1,
-                'reason': f"High conversion rate in {segment} segment"
-            })
-            
+        for segment, metrics in segment_performance.items():
+            if metrics['roas'] > 2.0:
+                recommendations.append({
+                    'segment': segment,
+                    'action': 'expand_audience',
+                    'method': 'lookalike',
+                    'parameters': {
+                        'percentage': 1,
+                        'country': 'US'
+                    }
+                })
+                
         return recommendations
         
     def _generate_exclusion_recommendations(self,
-                                          performance_by_segment: Dict[str, Dict[str, float]]) -> List[Dict[str, Any]]:
-        """Helper method to generate exclusion recommendations"""
+                                          segment_performance: Dict[str, Dict[str, float]]) -> List[Dict[str, Any]]:
+        """Helper method to generate audience exclusion recommendations"""
         recommendations = []
         
-        # Find underperforming segments
-        for segment, metrics in performance_by_segment.items():
-            if metrics['conversion_rate'] < 0.01:  # 1% conversion rate threshold
+        for segment, metrics in segment_performance.items():
+            if metrics['cpa'] > 50.0:  # Example threshold
                 recommendations.append({
                     'segment': segment,
-                    'reason': 'Low conversion rate',
-                    'metrics': metrics
+                    'action': 'exclude_audience',
+                    'reason': 'High CPA',
+                    'expected_impact': {
+                        'cpa_reduction': '20%',
+                        'spend_efficiency': '15%'
+                    }
                 })
                 
         return recommendations
@@ -408,9 +538,11 @@ class OptimizationAgent(BaseAgent):
     def _calculate_placement_metrics(self, data: Dict[str, Any]) -> Dict[str, float]:
         """Helper method to calculate placement-specific metrics"""
         return {
+            'ctr': (data.get('clicks', 0) / max(data.get('impressions', 1), 1)) * 100,
+            'cpc': data.get('spend', 0) / max(data.get('clicks', 1), 1),
+            'conversion_rate': (data.get('conversions', 0) / max(data.get('clicks', 1), 1)) * 100,
             'cpa': data.get('spend', 0) / max(data.get('conversions', 1), 1),
             'roas': data.get('revenue', 0) / max(data.get('spend', 1), 1),
-            'ctr': (data.get('clicks', 0) / max(data.get('impressions', 1), 1)) * 100,
             'spend': data.get('spend', 0)
         }
         

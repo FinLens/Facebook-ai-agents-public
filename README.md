@@ -1,101 +1,160 @@
 # Facebook Ads Multi-Agent System
 
-A sophisticated multi-agent system built with CrewAI to automate Facebook Ads management tasks. The system handles campaign creation, monitoring, optimization, and reporting through specialized agents working in concert.
+A sophisticated multi-agent system for managing and optimizing Facebook advertising campaigns using CrewAI. The system employs multiple specialized agents working in concert to monitor, analyze, and optimize campaign performance.
 
 ## Features
 
-- Comprehensive campaign strategy development and execution
-- Data-driven creative management with A/B testing
-- Real-time performance monitoring and automated optimization
-- Advanced reporting with actionable insights
-- Budget optimization across campaigns and ad sets
+### 1. Agent System
+- **Campaign Strategy Agent**: Develops and refines campaign structures and targeting strategies
+- **Optimization Agent**: Continuously monitors and optimizes campaign performance
+- **Reporting Agent**: Generates comprehensive performance reports
+- **Creative Management Agent**: Manages ad creative performance and prevents creative fatigue
+
+### 2. Slack Integration
+Available commands:
+- `/campaign-report [campaign_id] [time_window]`: Generate campaign performance report
+- `/optimize [campaign_id]`: Trigger campaign optimization
+- `/strategy [campaign_id]`: Get campaign strategy recommendations
+- `/kickoff-crew [config]`: Initialize the full agent crew with configuration
+
+### 3. Automated Reporting
+- Daily performance reports (9:00 AM ET)
+- Weekly optimization reports (Monday 10:00 AM ET)
+- Monthly strategy reviews (1st of month 11:00 AM ET)
+- Real-time performance alerts
+
+### 4. Optimization Features
+- Budget allocation optimization
+- Bid strategy adjustments
 - Audience targeting refinement
-- Creative fatigue detection and rotation
-- Performance alerts and notifications
-
-## Agent Capabilities
-
-### Campaign Strategy Agent
-- Analyzes historical campaign data to identify successful patterns
-- Recommends optimal campaign structures and settings
-- Sets performance targets based on business objectives
-- Optimizes budget allocation across campaigns
-- Suggests relevant interests and demographics for targeting
-- Recommends optimal placements based on performance data
-- Generates age range optimization strategies
-- Provides campaign structure recommendations
-
-### Creative Management Agent
-- Analyzes creative performance across campaigns
-- Detects creative fatigue using advanced metrics
-- Generates comprehensive A/B testing plans
-- Manages creative rotation schedules
-- Identifies top-performing creative elements
-- Provides data-driven creative recommendations
-- Tracks creative performance trends
-- Suggests optimal timing for creative refreshes
-
-### Optimization Agent
-- Monitors real-time campaign performance
-- Optimizes bid strategies automatically
-- Refines audience targeting based on performance
-- Optimizes ad placements for better results
-- Adjusts budgets based on performance metrics
-- Analyzes audience segment performance
-- Implements automated bid adjustments
-- Generates optimization recommendations
-
-### Reporting Agent
-- Generates detailed daily performance reports
-- Creates comprehensive weekly summaries
-- Produces strategic monthly reviews
-- Tracks key performance indicators (KPIs)
-- Generates automated performance alerts
-- Identifies significant performance changes
-- Calculates critical campaign metrics
-- Provides strategic insights and recommendations
-
-## System Architecture
-
-The system consists of four main agents:
-1. Campaign Strategy Agent
-2. Creative Management Agent
-3. Optimization Agent
-4. Reporting Agent
+- Placement optimization
+- Creative performance monitoring
+- A/B testing management
 
 ## Setup
 
-1. Clone this repository
+### Prerequisites
+- Python 3.8+
+- Facebook Business API access
+- Slack workspace with bot permissions
+- OpenAI API key (for CrewAI)
+
+### Installation
+1. Clone the repository
 2. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
-3. Set up environment variables:
+3. Copy `.env.example` to `.env` and fill in your credentials:
 ```bash
 cp .env.example .env
 ```
-4. Add your Facebook API credentials to `.env`
+
+### Environment Variables
+```bash
+# Facebook API Credentials
+FB_APP_ID=your_app_id
+FB_APP_SECRET=your_app_secret
+FB_ACCESS_TOKEN=your_access_token
+FB_AD_ACCOUNT_ID=your_account_id
+
+# OpenAI API Key
+OPENAI_API_KEY=your_openai_api_key
+
+# Slack Configuration
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+SLACK_APP_TOKEN=xapp-your-app-token
+SLACK_DEFAULT_CHANNEL=#facebook-ads-reports
+
+# Campaign Configuration
+FB_CAMPAIGN_IDS=123,456,789  # Comma-separated campaign IDs
+
+# Performance Thresholds
+MIN_ROAS=2.0
+MAX_CPA=50.0
+CREATIVE_FATIGUE_THRESHOLD=0.15
+```
+
+## System Architecture
+
+### Agents
+1. **BaseAgent**
+   - Common functionality for all agents
+   - Error handling and utility methods
+   - CrewAI integration
+
+2. **CampaignStrategyAgent**
+   - Campaign structure optimization
+   - Audience targeting strategy
+   - Budget allocation recommendations
+
+3. **OptimizationAgent**
+   - Real-time performance monitoring
+   - Automated optimization actions
+   - Placement and bid optimization
+   - Audience refinement
+
+4. **ReportingAgent**
+   - Performance report generation
+   - Custom report scheduling
+   - Alert monitoring and notification
+
+5. **CreativeManagementAgent**
+   - Creative performance analysis
+   - A/B test management
+   - Creative fatigue detection
+
+### Services
+1. **FacebookService**
+   - Facebook Ads API integration
+   - Data fetching and updating
+   - Campaign management operations
+
+2. **SlackService**
+   - Message formatting and sending
+   - Command handling
+   - Report distribution
+
+3. **SchedulerService**
+   - Automated task scheduling
+   - Report timing management
+   - Periodic optimization runs
 
 ## Usage
 
-Run the main system:
+### Basic Usage
+1. Start the system:
 ```bash
 python main.py
 ```
 
-## Project Structure
-
+2. Use Slack commands to interact with the system:
 ```
-├── agents/                 # Individual agent implementations
-├── config/                 # Configuration files
-├── data/                   # Data storage and processing
-├── models/                 # ML models and optimization logic
-├── utils/                  # Utility functions
-└── tests/                 # Test suite
+/campaign-report 123456789 7d  # Get 7-day report for campaign
+/optimize 123456789           # Optimize campaign
+/strategy 123456789          # Get strategy recommendations
 ```
 
-## Requirements
+### Advanced Features
+1. **Custom Report Scheduling**
+   - Modify `scheduler_service.py` to adjust report timing
+   - Add new report types in `reporting_agent.py`
 
-- Python 3.9+
-- Facebook Business Account
-- Facebook Marketing API access
+2. **Optimization Rules**
+   - Adjust thresholds in `.env` file
+   - Modify optimization logic in `optimization_agent.py`
+
+3. **Strategy Customization**
+   - Update targeting rules in `campaign_strategy_agent.py`
+   - Modify budget allocation strategies
+
+## Contributing
+1. Fork the repository
+2. Create a feature branch
+3. Submit a pull request
+
+## License
+MIT License
+
+## Support
+For support, please open an issue in the repository or contact the development team.

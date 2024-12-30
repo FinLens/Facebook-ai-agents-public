@@ -252,16 +252,8 @@ class ReportingAgent(BaseAgent):
                            campaign_id: str,
                            start_date: datetime,
                            end_date: datetime = None) -> Dict[str, Any]:
-        """Helper method to fetch campaign data"""
-        # This would typically make API calls to Facebook
-        # For now, return dummy data
-        return {
-            'spend': 1000.0,
-            'impressions': 100000,
-            'clicks': 2000,
-            'conversions': 100,
-            'revenue': 5000.0
-        }
+        """Helper method to fetch campaign data from Facebook Ads API"""
+        return self.fb_service.get_campaign_data(campaign_id, start_date, end_date)
         
     def _calculate_campaign_metrics(self, data: Dict[str, Any]) -> Dict[str, float]:
         """Helper method to calculate campaign metrics"""

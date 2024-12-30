@@ -1,8 +1,11 @@
-from crewai import Crew, Task
+from agents.reporting_agent import ReportingAgent
+from agents.optimization_agent import OptimizationAgent
 from agents.campaign_strategy_agent import CampaignStrategyAgent
 from agents.creative_management_agent import CreativeManagementAgent
-from agents.optimization_agent import OptimizationAgent
-from agents.reporting_agent import ReportingAgent
+from services.slack_bot import SlackBot
+from services.slack_service import SlackService
+from services.scheduler_service import SchedulerService
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import os
 
@@ -11,67 +14,97 @@ load_dotenv()
 
 class FacebookAdsCrew:
     def __init__(self):
-        # Initialize agents
-        self.strategy_agent = CampaignStrategyAgent()
-        self.creative_agent = CreativeManagementAgent()
-        self.optimization_agent = OptimizationAgent()
         self.reporting_agent = ReportingAgent()
+        self.optimization_agent = OptimizationAgent()
+        self.campaign_strategy_agent = CampaignStrategyAgent()
+        self.creative_management_agent = CreativeManagementAgent()
         
-    def create_campaign_tasks(self, campaign_config: dict) -> list:
-        """Create tasks for campaign management"""
+    def run_crew(self, campaign_config: dict) -> dict:
+        """Run the Facebook Ads crew with the given configuration"""
+        from crewai import Crew
+        
+        # Create crew tasks
         tasks = [
-            Task(
-                description="Analyze historical data and create campaign strategy",
-                agent=self.strategy_agent.agent
-            ),
-            Task(
-                description="Monitor and optimize creative performance",
-                agent=self.creative_agent.agent
-            ),
-            Task(
-                description="Optimize campaign performance metrics",
-                agent=self.optimization_agent.agent
-            ),
-            Task(
-                description="Generate performance reports and insights",
-                agent=self.reporting_agent.agent
-            )
+            {
+                "agent": self.campaign_strategy_agent.agent,
+                "task": f"Analyze the target audience and develop a campaign strategy. Target audience: {campaign_config['target_audience']}, Objective: {campaign_config['objective']}"
+            },
+            {
+                "agent": self.creative_management_agent.agent,
+                "task": f"Design creative assets based on the campaign strategy and requirements: {campaign_config['creative_requirements']}"
+            },
+            {
+                "agent": self.optimization_agent.agent,
+                "task": f"Optimize the campaign for {', '.join(campaign_config['optimization_goals'])} with budget {campaign_config['budget']}"
+            },
+            {
+                "agent": self.reporting_agent.agent,
+                "task": "Generate initial campaign performance projections and reporting framework"
+            }
         ]
-        return tasks
         
-    def run_crew(self, campaign_config: dict):
-        """Run the Facebook Ads management crew"""
-        # Create crew with tasks
-        tasks = self.create_campaign_tasks(campaign_config)
+        # Create and run the crew
         crew = Crew(
-            agents=[
-                self.strategy_agent.agent,
-                self.creative_agent.agent,
-                self.optimization_agent.agent,
-                self.reporting_agent.agent
-            ],
-            tasks=tasks,
+            agents=[task["agent"] for task in tasks],
+            tasks=[task["task"] for task in tasks],
             verbose=True
         )
         
-        # Execute crew tasks
         result = crew.kickoff()
         return result
 
-if __name__ == "__main__":
-    # Example campaign configuration
-    campaign_config = {
-        "objective": "CONVERSIONS",
-        "budget": 1000.0,
-        "target_audience": {
-            "age_min": 25,
-            "age_max": 45,
-            "genders": ["MALE", "FEMALE"],
-            "interests": ["technology", "digital marketing"]
-        }
-    }
-    
-    # Initialize and run crew
+def main():
+    # Initialize Facebook Ads Crew
     fb_crew = FacebookAdsCrew()
-    result = fb_crew.run_crew(campaign_config)
-    print("Crew execution completed:", result)
+    
+    # Initialize services
+    slack_service = SlackService()
+    scheduler = SchedulerService()
+    
+    # Initialize Slack bot with all agents and crew
+    slack_bot = SlackBot(
+        reporting_agent=fb_crew.reporting_agent,
+        optimization_agent=fb_crew.optimization_agent,
+        campaign_strategy_agent=fb_crew.campaign_strategy_agent,
+        fb_crew=fb_crew
+    )
+    
+    # Schedule daily performance report
+    def send_daily_report():
+        campaign_ids = os.getenv('FB_CAMPAIGN_IDS', '').split(',')
+        for campaign_id in campaign_ids:
+            report = fb_crew.reporting_agent.generate_campaign_report(
+                campaign_id=campaign_id,
+                start_date=datetime.now() - timedelta(days=1)
+            )
+            slack_service.send_report(report, "Campaign Performance")
+            
+    scheduler.schedule_daily_report(send_daily_report, hour=9, minute=0)
+    
+    # Schedule weekly optimization report
+    def send_weekly_optimization():
+        campaign_ids = os.getenv('FB_CAMPAIGN_IDS', '').split(',')
+        for campaign_id in campaign_ids:
+            recommendations = fb_crew.optimization_agent.generate_recommendations(
+                campaign_id=campaign_id
+            )
+            slack_service.send_report(recommendations, "Optimization Recommendations")
+            
+    scheduler.schedule_weekly_report(send_weekly_optimization, day_of_week='mon', hour=10, minute=0)
+    
+    # Schedule monthly strategy review
+    def send_monthly_strategy():
+        campaign_ids = os.getenv('FB_CAMPAIGN_IDS', '').split(',')
+        for campaign_id in campaign_ids:
+            strategy = fb_crew.campaign_strategy_agent.analyze_historical_data(
+                campaign_id=campaign_id
+            )
+            slack_service.send_report(strategy, "Campaign Strategy")
+            
+    scheduler.schedule_monthly_report(send_monthly_strategy, day=1, hour=11, minute=0)
+    
+    # Start the Slack bot
+    slack_bot.start()
+
+if __name__ == "__main__":
+    main()
