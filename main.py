@@ -23,30 +23,9 @@ class FacebookAdsCrew:
         """Run the Facebook Ads crew with the given configuration"""
         from crewai import Crew
         
-        # Create crew tasks
-        tasks = [
-            {
-                "agent": self.campaign_strategy_agent.agent,
-                "task": f"Analyze the target audience and develop a campaign strategy. Target audience: {campaign_config['target_audience']}, Objective: {campaign_config['objective']}"
-            },
-            {
-                "agent": self.creative_management_agent.agent,
-                "task": f"Design creative assets based on the campaign strategy and requirements: {campaign_config['creative_requirements']}"
-            },
-            {
-                "agent": self.optimization_agent.agent,
-                "task": f"Optimize the campaign for {', '.join(campaign_config['optimization_goals'])} with budget {campaign_config['budget']}"
-            },
-            {
-                "agent": self.reporting_agent.agent,
-                "task": "Generate initial campaign performance projections and reporting framework"
-            }
-        ]
-        
         # Create and run the crew
         crew = Crew(
-            agents=[task["agent"] for task in tasks],
-            tasks=[task["task"] for task in tasks],
+            tasks=campaign_config['tasks'],
             verbose=True
         )
         

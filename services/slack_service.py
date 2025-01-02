@@ -3,6 +3,10 @@ from slack_sdk.errors import SlackApiError
 import os
 from typing import Dict, Any, List
 import json
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 class SlackService:
     def __init__(self):

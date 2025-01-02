@@ -5,6 +5,10 @@ from typing import Dict, Any, List
 import json
 from datetime import datetime, timedelta
 import re
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 class SlackBot:
     def __init__(self, reporting_agent, optimization_agent, campaign_strategy_agent, fb_crew):

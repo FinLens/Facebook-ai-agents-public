@@ -6,6 +6,10 @@ from facebook_business.adobjects.campaign import Campaign
 from facebook_business.adobjects.adset import AdSet
 from facebook_business.adobjects.ad import Ad
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 class FacebookService:
     def __init__(self):
@@ -66,12 +70,12 @@ class FacebookService:
             if 'actions' in data:
                 for action in data['actions']:
                     if action['action_type'] in ['purchase', 'complete_registration']:
-                        conversions += action['value']
+                        conversions += int(action.get('value', 0))
                         
             if 'action_values' in data:
                 for value in data['action_values']:
                     if value['action_type'] in ['purchase', 'complete_registration']:
-                        revenue += value['value']
+                        revenue += float(value.get('value', 0))
                         
             return {
                 'spend': float(data.get('spend', 0)),
@@ -131,12 +135,12 @@ class FacebookService:
             if 'actions' in data:
                 for action in data['actions']:
                     if action['action_type'] in ['purchase', 'complete_registration']:
-                        conversions += action['value']
+                        conversions += int(action.get('value', 0))
                         
             if 'action_values' in data:
                 for value in data['action_values']:
                     if value['action_type'] in ['purchase', 'complete_registration']:
-                        revenue += value['value']
+                        revenue += float(value.get('value', 0))
                         
             return {
                 'spend': float(data.get('spend', 0)),
